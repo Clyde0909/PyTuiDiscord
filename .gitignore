@@ -1,0 +1,12 @@
+# Python venv
+pyvenv.cfg
+bin/
+include/
+scripts/
+lib/
+lib64
+share/
+__pycache__/
+
+# env
+.env
