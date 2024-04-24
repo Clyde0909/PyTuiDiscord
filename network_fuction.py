@@ -44,6 +44,7 @@ def get_guilds(token):
   response = requests.get(guilds_api_url, headers=headers)
   guild_list_dict = response.json()
   return guild_list_dict
+  # End of get_guilds()
 
 def get_channels(token, guild_id):
   # get channels from discord
@@ -53,4 +54,24 @@ def get_channels(token, guild_id):
   }
   response = requests.get(channels_api_url, headers=headers)
   channels_list_dict = response.json()
-  print(channels_list_dict)
+  return channels_list_dict
+  # End of get_channels()
+
+async def get_channel_messages(token, channel_id, message_id):
+  # get chattings from discord channel
+  messages_api_url = f"https://discord.com/api/v9/channels/{channel_id}/messages"
+  headers = {
+    "Authorization": token
+  }
+  if message_id:
+    payload = {
+      "limit": 50,
+      "before": message_id
+    }
+  else:
+    payload = {
+      "limit": 50
+    }
+  response = requests.get(messages_api_url, headers=headers, params=payload)
+  messages_list_dict = response.json()
+  return messages_list_dict
