@@ -1,0 +1,7 @@
+Horizontal {
+  overflow: auto;
+}
+
+#left_pane {
+  width: 30%;
+}
