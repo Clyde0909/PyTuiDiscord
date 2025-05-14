@@ -1,4 +1,8 @@
+# python
+__pycache__/
+
 # Python venv
+venv/
 pyvenv.cfg
 bin/
 include/
@@ -6,7 +10,7 @@ scripts/
 lib/
 lib64
 share/
-__pycache__/
 
 # env
 .env
+*.key

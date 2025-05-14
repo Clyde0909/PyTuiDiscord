@@ -1,0 +1,111 @@
+/* General styling */
+Screen {
+    layout: vertical;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Center content in LoginScreen */
+LoginScreen {
+    align-horizontal: center;
+}
+
+/* Specific ID styling for labels */
+#error_label { /* For widgets with id="error_label" (constants.ID_ERROR_LABEL) */
+    color: red;
+    text-style: bold;
+    margin: 1 0;
+    height: auto;
+    min-height: 1; /* Ensure space is reserved */
+}
+
+#info_label { /* For widgets with id="info_label" (constants.ID_INFO_LABEL) */
+    color: $text-muted;
+    margin: 1 0;
+    height: auto;
+    min-height: 1; /* Ensure space is reserved */
+}
+
+/* Styling for left panes using specific IDs */
+#guild_list_left_pane,
+#channel_list_left_pane {
+    width: 30%;
+    height: 100%;
+    margin-right: 1;
+    border-right: solid $primary-background-lighten-2;
+}
+
+/* Styling for the main content area (right panes) by their specific IDs */
+#guild_list_right_pane,
+#chat_area_container {
+    width: 70%; /* Adjust to complement left-pane width */
+    height: 100%;
+}
+
+/* Input fields styling */
+Input {
+    margin-bottom: 1;
+}
+
+/* Button styling */
+Button {
+    width: 100%; /* Make buttons take full width of their container */
+    margin-bottom: 1;
+}
+
+/* ListView styling */
+ListView {
+    background: $panel;
+    border: tall $background-darken-2;
+    height: 100%; /* Ensure it fills its container */
+}
+
+/* RichLog for chat messages */
+RichLog#chat_history { /* Assuming ID_CHAT_HISTORY is "chat_history" */
+    border: tall $background-darken-2;
+    height: 1fr; /* Take remaining space */
+    background: $panel;
+    padding: 1;
+}
+
+/* Specific ID styling for other elements */
+#login_button { /* Corresponds to ID_LOGIN_BUTTON */
+    /* variant: primary; (can be set in Python) */
+}
+
+#chat_input { /* Corresponds to ID_CHAT_INPUT */
+    dock: bottom;
+    margin-top: 1;
+}
+
+/* Header and Footer styling */
+Header {
+    dock: top;
+    background: $primary;
+    color: $text;
+    text-style: bold;
+    padding: 0 1;
+}
+
+Footer {
+    dock: bottom;
+    background: $primary;
+    color: $text;
+    height: 1;
+    padding: 0 1;
+}
+
+/* Container for login form elements */
+LoginScreen > Container {
+    align: center middle;
+    padding: 2;
+    width: 50%;
+    height: auto;
+    margin: 2 0; /* Top/bottom margin of 2, left/right margin of 0 (centering handled by parent) */
+    border: round $primary;
+}
+
+/* Ensure inputs and button in login screen take full width of their container */
+LoginScreen Input, LoginScreen Button {
+    width: 100%;
+}
