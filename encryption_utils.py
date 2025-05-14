@@ -1,4 +1,3 @@
-\
 import os
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -69,7 +68,6 @@ def save_encrypted_token(token: str):
     except IOError as e:
         print(f"Error writing encrypted token to {ENV_FILE}: {e}")
 
-
 def load_decrypted_token() -> str | None:
     """Loads and decrypts the token from ENV_FILE."""
     if not os.path.exists(ENV_FILE):
@@ -80,9 +78,8 @@ def load_decrypted_token() -> str | None:
             for line in lines:
                 if line.startswith("DISCORD_TOKEN="):
                     encrypted_token_str = line.split("=", 1)[1].strip()
-                    # Encrypted token was saved as base64 string, convert back to bytes
                     encrypted_token_bytes = encrypted_token_str.encode('latin-1')
-                    return decrypt_token(encrypted_token_bytes)
+                    return decrypt_token(encrypted_token_bytes) # Call decrypt_token here
         return None # No token found in file
     except FileNotFoundError:
         return None

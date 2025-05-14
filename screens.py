@@ -119,18 +119,21 @@ class LoginScreen(Screen):
       event.button.disabled = True
 
       try:
-        # network_fuction.get_login_info now returns a dict
         login_response = await asyncio.to_thread(network_fuction.get_login_info, client_id, client_secret)
         
         if login_response.get("captcha_required"):
-            self.log.warning(f"Login attempt resulted in reCaptcha: {login_response.get('message')}")
-            self.error_label.update("reCaptcha required. Please provide token manually.")
+            self.log.warning(f"Login attempt resulted in reCaptcha: {login_response.get('details')}") # Use details for more info
+            self.error_label.update("reCaptcha required. Please use the manual token input screen.")
             self.app.push_screen(ManualTokenInputScreen())
+        elif login_response.get("needs_email_verification"):
+            error_msg = login_response.get("error", "Please check your email to verify your login attempt.") # Use specific msg if available
+            self.log.warning(f"Login requires email verification: {error_msg}")
+            self.error_label.update(error_msg)
+            # Inputs remain disabled, user needs to act externally.
         elif login_response.get("token"):
             token = login_response["token"]
             self.log.info("Login successful. Token obtained.")
             self.error_label.update("") 
-            # GuildListScreen expects the raw token for the session
             self.app.push_screen(GuildListScreen(token=token))
         elif login_response.get("error"):
             error_msg = login_response["error"]
@@ -144,14 +147,15 @@ class LoginScreen(Screen):
         self.log.error(f"Login error: {e}")
         self.error_label.update(f"An error occurred: {e}")
       finally:
-        # Re-enable inputs only if not navigating away or to manual token screen
-        # This logic might need refinement based on screen transition flow
-        if not (login_response.get("captcha_required") or login_response.get("token")) :
+        # Re-enable inputs only if we are not navigating away AND 
+        # no captcha was required AND no email verification is pending.
+        if not (login_response.get("token") or \
+                login_response.get("captcha_required") or \
+                login_response.get("needs_email_verification")):
             email_input.disabled = False
             password_input.disabled = False
             event.button.disabled = False
-        else: # If we are moving to another screen, keep them disabled
-            pass
+        # If we navigated, or captcha is up, or email verification is pending, inputs remain disabled.
 
 class GuildListScreen(Screen):
   """Screen for displaying a list of guilds (servers)."""
@@ -271,12 +275,15 @@ class PerGuildMessageScreen(Screen):
       if channel_data:
         self.channel_list = channel_data
         for channel in self.channel_list:
-          channel_list_view.append(
-            ListItem(
-              Label(channel.get("name", "Unknown Channel")), 
-              name=str(channel.get("id"))
+          # only add type: 0 (text channels) to the list
+          if channel.get("type") == 0:
+            channel_list_view.append(
+                ListItem(
+                Label(channel.get("name", "Unknown Channel")), 
+                name=str(channel.get("id"))
+                )
             )
-          )
+        
         self.info_label.update("")
         self.log.info(f"Fetched {len(self.channel_list)} channels for guild {self.guild_id}.")
       else:

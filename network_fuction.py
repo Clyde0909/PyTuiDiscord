@@ -24,54 +24,90 @@ def get_login_info(client_id, client_secret):
   
   try:
     response = requests.post(login_api_url, headers=headers, json=payload)
-    response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
-    response_json = response.json()
-
-    if "captcha_key" in response_json: # Check for reCaptcha indicator
-      # You might want to return more details if the API provides them (e.g., sitekey)
-      return {"captcha_required": True, "message": response_json.get("message", "reCaptcha verification required.")}
     
-    token = response_json.get("token")
-    if token:
-      encryption_utils.save_encrypted_token(token) # Encrypt and save the token
-      return {"token": token} # Return the raw token for immediate use in the session
-    else:
-      # Handle cases where login fails without a token and without captcha (e.g., wrong credentials)
-      error_message = "Login failed. Please check your credentials."
+    response_json = {}
+    try:
+        response_json = response.json()
+    except json.JSONDecodeError:
+        # If response is not JSON, and it's not a successful status, it's an issue.
+        if response.ok: # Successful status but not JSON
+             return {"error": "Login successful, but server sent an unreadable response."}
+        # For non-OK responses that aren't JSON, use the text content.
+        return {"error": f"Server error ({response.status_code}): {response.text[:200]}"}
+
+    # Check for captcha first, as it can come with various status codes (e.g., 200 or 400)
+    if "captcha_key" in response_json:
+      return {
+          "captcha_required": True, 
+          "message": response_json.get("message", "reCaptcha verification required."),
+          "details": response_json # Pass all details (sitekey, service, rqdata, rqtoken)
+      }
+    
+    # If not captcha, then evaluate based on HTTP status code
+    if response.ok: # Status 200-299, typically means login success if token is present
+      token = response_json.get("token")
+      if token:
+        encryption_utils.save_encrypted_token(token) # Encrypt and save the token
+        return {"token": token} # Return the raw token for immediate use in the session
+      else:
+        # Successful status but no token. This could be an edge case or an error message.
+        error_message = "Login successful, but no token was found in the response."
+        if "message" in response_json: # Check if Discord included a specific message
+            error_message = response_json["message"]
+        # It might also have an 'errors' structure if it's a subtle error despite 2xx status
+        if response_json.get("errors"):
+            try:
+                error_details = []
+                for field, errors_list in response_json["errors"].items():
+                    for error_item in errors_list:
+                        error_details.append(f"{field.replace('_', ' ').capitalize()}: {error_item['message']}")
+                if error_details:
+                  error_message = "\n".join(error_details)
+            except Exception: 
+                pass # Stick with the existing error_message
+        return {"error": error_message}
+    else: # Not response.ok (e.g., 400 for bad credentials if not captcha, 401, 403, 5xx)
+      # Attempt to parse a structured error message from Discord's JSON response
+      error_message = f"Login failed (status {response.status_code})."
+      needs_email_verification = False # Initialize the flag
+
       if "message" in response_json:
           error_message = response_json["message"]
-      elif response_json.get("errors"):
-          # Discord often returns detailed errors in an 'errors' object
+      
+      if response_json.get("errors"): # Discord often returns detailed errors in an 'errors' object
           try:
-              # Attempt to format errors nicely
               error_details = []
-              for field, errors_list in response_json["errors"].items():
-                  for error_item in errors_list:
-                      error_details.append(f"{field.replace('_', ' ').capitalize()}: {error_item['message']}")
-              error_message = "\n".join(error_details) if error_details else error_message
-          except Exception: # Fallback if error structure is unexpected
-              pass # Keep the generic error_message
-      return {"error": error_message}
+              # Check for the specific email verification error
+              login_errors = response_json.get("errors", {}).get("login", {}).get("_errors", [])
+              for err in login_errors:
+                  if err.get("code") == "ACCOUNT_LOGIN_VERIFICATION_EMAIL":
+                      needs_email_verification = True
+                      # Use the specific message from this error if available
+                      error_message = err.get("message", error_message) 
+                      break # Found the specific error, no need to parse further generic errors for the main message
+              
+              if not needs_email_verification: # If not the specific email error, parse other errors
+                for field, errors_list in response_json["errors"].items():
+                    for error_item in errors_list: # errors_list is a list of dicts
+                        # Ensure error_item is a dict and has 'message'
+                        if isinstance(error_item, dict) and 'message' in error_item:
+                            error_details.append(f"{field.replace('_', ' ').capitalize()}: {error_item['message']}")
+                        elif isinstance(error_item, str): # Sometimes it might just be a list of strings
+                            error_details.append(f"{field.replace('_', ' ').capitalize()}: {error_item}")
+                if error_details: # If we successfully parsed details, use them
+                  error_message = "\n".join(error_details)
+          except Exception: 
+              # If parsing 'errors' fails, stick with the 'message' or the generic one
+              pass 
+      
+      return_value = {"error": error_message}
+      if needs_email_verification:
+          return_value["needs_email_verification"] = True
+      return return_value
 
-  except requests.exceptions.HTTPError as http_err:
-    # Try to parse the error response from Discord if available
-    try:
-        error_json = http_err.response.json()
-        message = error_json.get("message", str(http_err))
-        if "errors" in error_json: # More specific errors
-             # Attempt to format errors nicely
-            error_details = []
-            for field, errors_list in error_json["errors"].items():
-                for error_item in errors_list:
-                    error_details.append(f"{field.replace('_', ' ').capitalize()}: {error_item['message']}")
-            message = "\n".join(error_details) if error_details else message
-        return {"error": f"Login request failed: {message}"}
-    except json.JSONDecodeError: # If response is not JSON
-        return {"error": f"Login request failed: {http_err}"}
-  except requests.exceptions.RequestException as req_err:
+  except requests.exceptions.RequestException as req_err: # Catches network issues, DNS failures, etc.
     return {"error": f"A network error occurred: {req_err}"}
-  except Exception as e:
-    # Catch any other unexpected errors during the process
+  except Exception as e: # Catch-all for any other unexpected errors during the process
     return {"error": f"An unexpected error occurred during login: {e}"}
 
 def get_guilds(token):
